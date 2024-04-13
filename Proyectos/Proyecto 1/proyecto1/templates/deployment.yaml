@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.proyecto1.name }}
+  namespace: {{ .Values.config.proyecto1.namespace }}
+  labels:
+    app: {{ .Values.config.proyecto1.name }}
+spec:
+  replicas: {{ .Values.config.proyecto1.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.proyecto1.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.proyecto1.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.proyecto1.name }}
+        image: {{ .Values.config.proyecto1.image }}

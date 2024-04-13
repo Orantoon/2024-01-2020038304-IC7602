@@ -1,0 +1,6 @@
+config:
+  proyecto1:
+    replicas: 1
+    name: proyecto1
+    namespace: default
+    image: orantoon/proyecto1-ic76020124
