@@ -1,33 +1,47 @@
 {
-    "mode": "udp",
-    "udp": {
+    "mode": "http",
+    "http": {
         "ports": {
-            "5400": [
-                {
-                    "ip": "10.0.0.40",
-                    "port": "3658"
-                },
-                {
-                    "ip": "$SERVER2",
-                    "port": "3658"
-                }
-            ],
-            "6569": [
-                {
-                    "ip": "10.0.0.45",
-                    "port": "8969"
-                },
-                {
-                    "ip": "$SERVER2",
-                    "port": "8969"
-                }
-            ]
+            "8080": {
+                "www.name1.com": [
+                    {
+                        "ip": "$SERVER1",
+                        "weight": "30",
+                        "port": "8080",
+                        "type": "host"
+                    },
+                    {
+                        "ip": "10.0.0.58",
+                        "port": "8081",
+                        "type": "path",
+                        "path": "/server2"
+                    },
+                    {
+                        "ip": "$SERVER4",
+                        "port": "8080",
+                        "type": "host"
+                    },
+                    {
+                        "ip": "$SERVER5",
+                        "weight": "69",
+                        "port": "9090",
+                        "type": "path",
+                        "path": "/server2"
+                    },
+                    {
+                        "ip": "10.0.0.63",
+                        "weight": "20",
+                        "port": "8080",
+                        "type": "host"
+                    },
+                    {
+                        "ip": "10.0.0.39",
+                        "port": "7069",
+                        "type": "path",
+                        "path": "/server1"
+                    }
+                ]
+            }
         }
     }
 }
-
-
-
-
-
-

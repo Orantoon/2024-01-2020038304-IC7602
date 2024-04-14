@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <cjson/cJSON.h> 
+#include <cjson/cJSON.h>
+//#include <netdb.h>
 
 
 char *variable;
@@ -17,7 +18,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Guardar contenido de "config.json" en un buffer
-    char buffer[1024];
+    char buffer[4000];
     int len = fread(buffer, 1, sizeof(buffer), fp);
     fclose(fp);
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
-    else if (strcmp(mode->valuestring, "udp") == 0)
+    else if (strcmp(mode->valuestring, "http") == 0)
     {
         printf("Mode: HTTP.\n");
         if (modeHTTP(json) == 1) {
@@ -67,7 +68,7 @@ int main(int argc, char *argv[]) {
     }
     else
     {
-        printf("Error: El mode seleccionado no existe.\n");
+        printf("Error: El mode seleccionado (%s) no existe.\n", mode->valuestring);
         cJSON_Delete(json);
         return 1;
     }
@@ -86,14 +87,14 @@ int modeTCP(cJSON *json) {
 
     if (tcp == NULL)
     {
-        printf("Error: No se encontraron los puertos TCP.\n");
+        printf("Error: No se encontró la configuración TCP.\n");
         return 1;
     }
 
     cJSON *ports = cJSON_GetObjectItemCaseSensitive(tcp, "ports");
 
     if (ports == NULL) {
-        printf("Error: No se encontraron los puertos.\n");
+        printf("Error: No se encontraron los puertos TCP.\n");
         return 1;
     }
 
@@ -111,6 +112,7 @@ int modeTCP(cJSON *json) {
     const char *serverPort; // Puerto del servidor dentro de un puerto N
     const char *serverWeight; // Weight del servidor dentro de un puerto N
 
+    // Loops para extraer los datos de los puertos
     cJSON_ArrayForEach(port, ports) {
         portNumber = port->string;
         portContent = cJSON_GetObjectItemCaseSensitive(ports, portNumber);
@@ -140,10 +142,9 @@ int modeTCP(cJSON *json) {
 
             printf("  IP: %s, Port: %s", serverIp, serverPort);
             if (serverWeight) {
-                printf(", Weight: %s\n", serverWeight);
-            } else {
-                printf("\n");
+                printf(", Weight: %s", serverWeight);
             }
+            printf("\n");
 
             if (servidorTcpUdp(serverIp, serverPort, serverWeight) == 1) {
                 printf("Error: El servidor con el IP: %s y Port: %s falló.\n", serverIp, serverPort);
@@ -160,14 +161,14 @@ int modeUDP(cJSON *json) {
 
     if (udp == NULL)
     {
-        printf("Error: No se encontraron los puertos UDP.\n");
+        printf("Error: No se encontró la configuración UDP.\n");
         return 1;
     }
 
     cJSON *ports = cJSON_GetObjectItemCaseSensitive(udp, "ports");
 
     if (ports == NULL) {
-        printf("Error: No se encontraron los puertos.\n");
+        printf("Error: No se encontraron los puertos UDP.\n");
         return 1;
     }
 
@@ -185,6 +186,8 @@ int modeUDP(cJSON *json) {
     const char *serverPort; // Puerto del servidor dentro de un puerto N
     const char *serverWeight; // Weight del servidor dentro de un puerto N
 
+
+    // Loops para extraer los datos de los puertos
     cJSON_ArrayForEach(port, ports) {
         portNumber = port->string;
         portContent = cJSON_GetObjectItemCaseSensitive(ports, portNumber);
@@ -214,10 +217,9 @@ int modeUDP(cJSON *json) {
 
             printf("  IP: %s, Port: %s", serverIp, serverPort);
             if (serverWeight) {
-                printf(", Weight: %s\n", serverWeight);
-            } else {
-                printf("\n");
+                printf(", Weight: %s", serverWeight);
             }
+            printf("\n");
 
             if (servidorTcpUdp(serverIp, serverPort, serverWeight) == 1) {
                 printf("Error: El servidor con el IP: %s y Port: %s falló.\n", serverIp, serverPort);
@@ -230,12 +232,123 @@ int modeUDP(cJSON *json) {
 }
 
 int modeHTTP(cJSON *json) {
-    printf("HTTP\n");
+    cJSON *http = cJSON_GetObjectItemCaseSensitive(json, "http"); 
+
+    if (http == NULL)
+    {
+        printf("Error: No se encontró la configuración HTTP.\n");
+        return 1;
+    }
+
+    cJSON *ports = cJSON_GetObjectItemCaseSensitive(http, "ports");
+
+    if (ports == NULL) {
+        printf("Error: No se encontraron los puertos HTTP.\n");
+        return 1;
+    }
+
+    cJSON *port; // Puerto que se está iterando en la lista de puertos
+
+    const char *portNumber; // Número de puerto que se está leyendo
+    cJSON *portContent; // Contenido del puerto, contiene hostnames
+
+    cJSON *dns; // DNS que se está iterando en la lista de hostnames del puerto
+    cJSON *hostname; // Hostname que se está leyendo
+    //struct addrinfo *result; // Se utiliza para validar que el hostname existe
+
+    cJSON *hostnameContent; // Contenido del hostname: contiene IP, Port, Weight, Type y Path
+    cJSON *hostnameData; // Dato que se está iterando en la lista de elementos de un DNS
+
+    cJSON *weightExists; // Validación de la existencia del elemento weight
+
+    const char *serverIp; // IP del servidor dentro de un hostname
+    const char *serverPort; // Puerto del servidor dentro de un hostname
+    const char *serverWeight; // Weight del servidor dentro de un hostname
+    const char *serverType; // Tipo de servidor dentro de un hostname
+    const char *serverPath; // Path de servidor dentro de un hostname, depende del serverType
+
+    // Loops para extraer los datos de los puertos
+    cJSON_ArrayForEach(port, ports) {
+        portNumber = port->string;
+        portContent = cJSON_GetObjectItemCaseSensitive(ports, portNumber);
+
+        printf("Port: %s\n", portNumber);
+
+        if (portContent == NULL) {
+            printf("PORT CONTENT: NULL or not an array\n");
+            continue;
+        }
+
+        cJSON_ArrayForEach(dns, portContent) {
+            hostname = dns->string;
+            hostnameContent = cJSON_GetObjectItemCaseSensitive(portContent, hostname);
+
+            printf("Hostname: %s\n", hostname);
+
+            /*
+            int status = getaddrinfo(hostname, NULL, NULL, &result);
+            if (status == 0) {
+                printf("El Hostname '%s' existe.\n", hostname);
+                freeaddrinfo(result);
+            } else {
+                printf("El Hostname '%s' no existe.\n", hostname);
+            }
+            */
+
+            if (hostnameContent == NULL || !cJSON_IsArray(hostnameContent)) {
+                printf("HOSTNAME: NULL or not an array\n");
+                continue;
+            }
+
+            cJSON_ArrayForEach(hostnameData, hostnameContent) {
+
+                if (!cJSON_IsObject(hostnameData)) {
+                    printf("HOSTNAME DATA: NULL or not an object\n");
+                    continue;
+                }
+
+                serverIp = cJSON_GetObjectItemCaseSensitive(hostnameData, "ip")->valuestring;
+                serverPort = cJSON_GetObjectItemCaseSensitive(hostnameData, "port")->valuestring;
+                weightExists = cJSON_GetObjectItemCaseSensitive(hostnameData, "weight");
+                if (weightExists && cJSON_IsString(weightExists)) {
+                    serverWeight = weightExists->valuestring;
+                } else {
+                    serverWeight = NULL;
+                }
+                serverType = cJSON_GetObjectItemCaseSensitive(hostnameData, "type")->valuestring;
+                if (strcmp(serverType, "path") == 0) {
+                    serverPath = cJSON_GetObjectItemCaseSensitive(hostnameData, "path")->valuestring;;
+                } else {
+                    serverPath = NULL;
+                }
+
+                printf("  IP: %s, Port: %s, Type: %s", serverIp, serverPort, serverType);
+                if (serverWeight) {
+                    printf(", Weight: %s", serverWeight);
+                }
+                if (serverPath) {
+                    printf(", Path: %s", serverPath);
+                }
+                printf("\n");
+
+                if (servidorHttp(serverIp, serverPort, serverWeight, serverType, serverPath) == 1) {
+                    printf("Error: El servidor con el IP: %s y Port: %s falló.\n", serverIp, serverPort);
+                    return 1;
+                }
+            }
+        }
+    }
+
     return 0;
 }
 
 
 int servidorTcpUdp(const char *ip, const char *port, const char *weight){
-    printf("SERVER!\n");
+    printf("SERVER TCP/UDP !\n");
+    return 0;
+}
+
+int servidorHttp(const char *ip, const char *port, const char *weight, const char *type, const char *path){
+    printf("SERVER HTTP!\n");
     return 0;
 }
