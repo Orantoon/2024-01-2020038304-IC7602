@@ -4,10 +4,6 @@
 //#include <netdb.h>
 
 
-char *variable;
-const char *port1;
-
-
 int main(int argc, char *argv[]) {
 
     // Abrir archivo "config.json"
@@ -73,9 +69,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    //char entorno = "SERVER1";
-    //variable = getenv(entorno);
-
     // Eliminar JSON 
     cJSON_Delete(json); 
     return 0; 
@@ -139,6 +132,18 @@ int modeTCP(cJSON *json) {
             } else {
                 serverWeight = NULL;
             }
+
+            // Revisar por variables de entorno
+            if (serverIp[0] == '$'){
+                serverIp = getenv(serverIp+1);
+            }
+            if (serverPort[0] == '$'){
+                serverPort = getenv(serverPort+1);
+            }
+            if (serverWeight[0] == '$'){
+                serverWeight = getenv(serverWeight+1);
+            }
+            // --------------------------------
 
             printf("  IP: %s, Port: %s", serverIp, serverPort);
             if (serverWeight) {
@@ -215,6 +220,18 @@ int modeUDP(cJSON *json) {
                 serverWeight = NULL;
             }
 
+            // Revisar por variables de entorno
+            if (serverIp[0] == '$'){
+                serverIp = getenv(serverIp+1);
+            }
+            if (serverPort[0] == '$'){
+                serverPort = getenv(serverPort+1);
+            }
+            if (serverWeight[0] == '$'){
+                serverWeight = getenv(serverWeight+1);
+            }
+            // --------------------------------
+
             printf("  IP: %s, Port: %s", serverIp, serverPort);
             if (serverWeight) {
                 printf(", Weight: %s", serverWeight);
@@ -227,7 +244,6 @@ int modeUDP(cJSON *json) {
             }
         }
     }
-
     return 0;
 }
 
@@ -266,6 +282,8 @@ int modeHTTP(cJSON *json) {
     const char *serverWeight; // Weight del servidor dentro de un hostname
     const char *serverType; // Tipo de servidor dentro de un hostname
     const char *serverPath; // Path de servidor dentro de un hostname, depende del serverType
+
+    const char *variableEnt;
 
     // Loops para extraer los datos de los puertos
     cJSON_ArrayForEach(port, ports) {
@@ -321,6 +339,29 @@ int modeHTTP(cJSON *json) {
                 } else {
                     serverPath = NULL;
                 }
+
+                printf("1: %s\n", serverIp);
+                // Revisar por variables de entorno
+                printf("2: %s\n", serverIp+1);
+                printf("3: %s\n", getenv(serverIp+1));
+                if (serverIp[0] == '$'){
+                    variableEnt = getenv(serverIp+1);
+                    serverIp = variableEnt;
+                }
+                printf("4: %s\n", serverIp);
+                if (serverPort[0] == '$'){
+                    serverPort = getenv(serverPort+1);
+                }
+                if (serverWeight[0] == '$'){
+                    serverWeight = getenv(serverWeight+1);
+                }
+                if (serverType[0] == '$'){
+                    serverType = getenv(serverType+1);
+                }
+                if (serverPath[0] == '$'){
+                    serverPath = getenv(serverPath+1);
+                }
+                // --------------------------------
 
                 printf("  IP: %s, Port: %s, Type: %s", serverIp, serverPort, serverType);
                 if (serverWeight) {
