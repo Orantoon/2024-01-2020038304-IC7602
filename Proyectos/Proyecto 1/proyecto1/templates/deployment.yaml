@@ -18,3 +18,12 @@ spec:
       containers:
       - name: {{ .Values.config.proyecto1.name }}
         image: {{ .Values.config.proyecto1.image }}
+        env:
+          - name: SERVER1
+            value: {{ .Values.config.proyecto1.env.SERVER1 }}
+          - name: SERVER2
+            value: {{ .Values.config.proyecto1.env.SERVER2 }}
+          - name: SERVER4
+            value: {{ .Values.config.proyecto1.env.SERVER4 }}
+          - name: SERVER5
+            value: {{ .Values.config.proyecto1.env.SERVER5 }}

@@ -1,8 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <cjson/cJSON.h>
 //#include <netdb.h>
 
+
+int modeTCP (cJSON *json);
+int modeUDP (cJSON *json);
+int modeHTTP (cJSON *json);
+
+int servidorTcpUdp(const char *ip, const char *port, const char *weight);
+int servidorHttp(const char *ip, const char *port, const char *weight, const char *type, const char *path);
 
 int main(int argc, char *argv[]) {
 
@@ -140,7 +148,7 @@ int modeTCP(cJSON *json) {
             if (serverPort[0] == '$'){
                 serverPort = getenv(serverPort+1);
             }
-            if (serverWeight[0] == '$'){
+            if (serverWeight != NULL && serverWeight[0] == '$'){
                 serverWeight = getenv(serverWeight+1);
             }
             // --------------------------------
@@ -151,7 +159,7 @@ int modeTCP(cJSON *json) {
             }
             printf("\n");
 
-            if (servidorTcpUdp(serverIp, serverPort, serverWeight) == 1) {
+            if (0 == 1) {
                 printf("Error: El servidor con el IP: %s y Port: %s falló.\n", serverIp, serverPort);
                 return 1;
             }
@@ -227,7 +235,7 @@ int modeUDP(cJSON *json) {
             if (serverPort[0] == '$'){
                 serverPort = getenv(serverPort+1);
             }
-            if (serverWeight[0] == '$'){
+            if (serverWeight != NULL && serverWeight[0] == '$'){
                 serverWeight = getenv(serverWeight+1);
             }
             // --------------------------------
@@ -238,7 +246,7 @@ int modeUDP(cJSON *json) {
             }
             printf("\n");
 
-            if (servidorTcpUdp(serverIp, serverPort, serverWeight) == 1) {
+            if (0 == 1) {
                 printf("Error: El servidor con el IP: %s y Port: %s falló.\n", serverIp, serverPort);
                 return 1;
             }
@@ -269,7 +277,7 @@ int modeHTTP(cJSON *json) {
     cJSON *portContent; // Contenido del puerto, contiene hostnames
 
     cJSON *dns; // DNS que se está iterando en la lista de hostnames del puerto
-    cJSON *hostname; // Hostname que se está leyendo
+    const char *hostname; // Hostname que se está leyendo
     //struct addrinfo *result; // Se utiliza para validar que el hostname existe
 
     cJSON *hostnameContent; // Contenido del hostname: contiene IP, Port, Weight, Type y Path
@@ -303,15 +311,11 @@ int modeHTTP(cJSON *json) {
 
             printf("Hostname: %s\n", hostname);
 
-            /*
-            int status = getaddrinfo(hostname, NULL, NULL, &result);
-            if (status == 0) {
-                printf("El Hostname '%s' existe.\n", hostname);
-                freeaddrinfo(result);
-            } else {
-                printf("El Hostname '%s' no existe.\n", hostname);
+            // Validación del hostname
+            if (strcmp(hostname, "www.name1.com") == 0) {
+                printf("El Hostname '%s' es incorrecto. El hostname debe ser www.name1.com\n", hostname);
+                return 1;
             }
-            */
 
             if (hostnameContent == NULL || !cJSON_IsArray(hostnameContent)) {
                 printf("HOSTNAME: NULL or not an array\n");
@@ -340,25 +344,21 @@ int modeHTTP(cJSON *json) {
                     serverPath = NULL;
                 }
 
-                printf("1: %s\n", serverIp);
                 // Revisar por variables de entorno
-                printf("2: %s\n", serverIp+1);
-                printf("3: %s\n", getenv(serverIp+1));
                 if (serverIp[0] == '$'){
                     variableEnt = getenv(serverIp+1);
                     serverIp = variableEnt;
                 }
-                printf("4: %s\n", serverIp);
                 if (serverPort[0] == '$'){
                     serverPort = getenv(serverPort+1);
                 }
-                if (serverWeight[0] == '$'){
+                if (serverWeight != NULL && serverWeight[0] == '$'){
                     serverWeight = getenv(serverWeight+1);
                 }
                 if (serverType[0] == '$'){
                     serverType = getenv(serverType+1);
                 }
-                if (serverPath[0] == '$'){
+                if (serverPath != NULL && serverPath[0] == '$'){
                     serverPath = getenv(serverPath+1);
                 }
                 // --------------------------------
@@ -382,7 +382,6 @@ int modeHTTP(cJSON *json) {
 
     return 0;
 }
-
 
 int servidorTcpUdp(const char *ip, const char *port, const char *weight){
     printf("SERVER TCP/UDP !\n");

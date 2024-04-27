@@ -4,3 +4,10 @@ config:
     name: proyecto1
     namespace: default
     image: orantoon/proyecto1-ic76020124
+    env:
+      SERVER1: "10.0.0.1"
+      SERVER2: "10.0.0.2"
+      SERVER4: "10.0.0.3"
+      SERVER5: "10.0.0.4"
+
+#nereo08/apache-ic76020124
