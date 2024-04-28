@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.apachetcp.name }}
+  namespace: default
+  labels:
+    app: {{ .Values.config.apachetcp.name }}
+spec:
+  replicas: {{ .Values.config.apachetcp.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.apachetcp.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.apachetcp.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.apachetcp.name }}
+        image: {{ .Values.config.apachetcp.image }}
+        ports:
+          - containerPort: {{ .Values.config.apachetcp.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.config.apachetcp.name }}
+  namespace: default
+  labels:
+    app: {{ .Values.config.apachetcp.name }}
+spec:
+  type: NodePort
+  ports:
+  - port: {{ .Values.config.apachetcp.port }}
+    protocol: TCP
+    targetPort: {{ .Values.config.apachetcp.port }}
+  selector:
+    app: {{ .Values.config.apachetcp.name }}
+  externalIPs:
+  - 10.0.0.40

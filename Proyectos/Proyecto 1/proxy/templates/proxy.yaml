@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.proxy.name }}
+  namespace: {{ .Values.config.proxy.namespace }}
+  labels:
+    app: {{ .Values.config.proxy.name }}
+spec:
+  replicas: {{ .Values.config.proxy.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.proxy.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.proxy.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.proxy.name }}
+        image: {{ .Values.config.proxy.image }}
+        env:
+          - name: SERVER1
+            value: {{ .Values.config.proxy.env.SERVER1 }}
+          - name: SERVER2
+            value: {{ .Values.config.proxy.env.SERVER2 }}
+          - name: SERVER3
+            value: {{ .Values.config.proxy.env.SERVER3 }}
+          - name: SERVER4
+            value: {{ .Values.config.proxy.env.SERVER4 }}
+          - name: SERVER5
+            value: {{ .Values.config.proxy.env.SERVER5 }}

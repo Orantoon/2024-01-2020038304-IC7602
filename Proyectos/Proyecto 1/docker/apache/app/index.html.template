@@ -1,0 +1,9 @@
+<!doctype html>
+<html>
+  <head>
+    <title>${SERVER_NAME}</title>
+  </head>
+  <body>
+    <h1 > Hola, ${SERVER_NAME}! </div>
+  </body>
+</html>
