@@ -2,5 +2,6 @@ config:
   apachetcp:
     replicas: 1
     name: apachetcp
+    SERVER_NAME: apachetcp
     image: orantoon/apache-ic76020124
-    port: 8081
+    port: 80

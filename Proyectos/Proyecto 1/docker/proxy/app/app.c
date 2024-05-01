@@ -141,8 +141,8 @@ int modeTCP(cJSON *json) {
         portNumber = port->string;
         portContent = cJSON_GetObjectItemCaseSensitive(ports, portNumber);
 
-        //printf("Port: %s\n", portNumber);
-
+        printf("Port: %s\n", portNumber);
+        
         if (portContent == NULL || !cJSON_IsArray(portContent)) {
             printf("PORT CONTENT: NULL or not an array\n");
             continue;
@@ -176,11 +176,15 @@ int modeTCP(cJSON *json) {
             }
             // --------------------------------
 
-            //printf("  IP: %s, Port: %s", serverIp, serverPort);
-            if (serverWeight) {
-                //printf(", Weight: %s", serverWeight);
+            if (serverIp == NULL){
+                serverIp = "10.0.0.0";
             }
-            //printf("\n");
+
+            printf("  IP: %s, Port: %s", serverIp, serverPort);
+            if (serverWeight) {
+                printf(", Weight: %s", serverWeight);
+            }
+            printf("\n\n");
 
             struct Server server;
             strcpy(server.ip, serverIp);
@@ -193,7 +197,7 @@ int modeTCP(cJSON *json) {
             servers[numServers++] = server;
             
         }
-
+        
         // Se realizan las acciones del proxy por puerto
         if (proxyTcp(atoi(portNumber), servers, numServers) == 1) {
             printf("Error: El proxy con el puerto: %s falló.\n", portNumber);
@@ -441,7 +445,7 @@ int proxyTcp(int port, struct Server *servers, int numServers){
 
     // En caso de que no se pueda escoger porque no hay weights
     if (selServer == -1){
-        selServer = (rand() % numServers) - 1;
+        selServer = rand() % numServers;
     }
 
     printf("Se escogio el server %d\n", selServer+1);
@@ -454,7 +458,7 @@ int proxyTcp(int port, struct Server *servers, int numServers){
     struct sockaddr_in proxy_addr, server_addr, client_addr;
     char buffer[1024];
 
-    // Se crea el socket TCP
+    // Se crea el socket TCPcd ..
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("Error: La creación del socket falló.\n");
         return 1;
@@ -486,43 +490,42 @@ int proxyTcp(int port, struct Server *servers, int numServers){
     //server_addr.sin_addr.s_addr = inet_addr(servers[selServer].ip);
     //server_addr.sin_port = htons(servers[selServer].port);
     server_addr.sin_addr.s_addr = inet_addr("10.0.0.40");
-    server_addr.sin_port = htons(8081);
+    server_addr.sin_port = htons(80);
 
     // Socket para el envio de datos al server
     int server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sockfd == -1) {
         printf("Error: Algo falló al crear el socket del server.\n");
-        return 1;
+        //return 1;
     }
 
     // Conexion con el server
     if (connect(server_sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         printf("Error: Algo falló al conectarse con el servidor.\n");
-        return 1;
+        //return 1;
     }
 
     printf("Conectado al servidor\n");
 
     socklen_t client_len = sizeof(client_addr);
 
-    while (1){
-        // Aceptando una conexión entrante
-        if ((client_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &client_len)) == -1) {
-            printf("Error: Algo falló al aceptar conexiones entrantes.\n");
-            return 1;
-        }
-
-
-        printf("Peticion Recibida.\n");
-
-        ssize_t bytes_read;
-        while ((bytes_read = read(client_sockfd, buffer, 1024)) > 0) {
-            if (send(server_sockfd, buffer, bytes_read, 0) == -1) {
-                printf("Error: Algo falló al enviar los datos al servidor.\n");
-                return 1;
-            }
-        }
+    // Aceptando una conexión entrante
+    if ((client_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &client_len)) == -1) {
+        printf("Error: Algo falló al aceptar conexiones entrantes.\n");
+        //return 1;
     }
+
+
+    printf("Peticion Recibida.\n");
+
+    char request[] = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+
+    if (send(client_sockfd, request, strlen(request), 0) == -1) {
+        printf("Error al enviar la solicitud al servidor");
+        //return 1;
+    }
+
+    printf("Peticion enviada al servidor.\n");
 
     close(client_sockfd);
     close(server_sockfd);
@@ -539,6 +542,5 @@ int proxyUdp(const char *port, const char *serverIp, const char *serverPort, con
 }
 
 int proxyHttp(const char *port, const char *serverIp, const char *serverPort, const char *weight, const char *type, const char *path){
-    printf("SERVER HTTP!\n");
-    return 0;
+
 }

@@ -27,8 +27,8 @@ RUN gcc -o myapp app.c -I/usr/local/include -L/usr/local/lib -lcjson
 
 # Permisos y ejecución de la aplicacion app.c
 
-RUN chmod +x myapp
-RUN /usr/src/myapp/myapp
+#RUN chmod +x myapp
+#RUN /usr/src/myapp/myapp
 
 # Ejecutar la imagen
 CMD [ "tail", "-f", "/dev/null"]

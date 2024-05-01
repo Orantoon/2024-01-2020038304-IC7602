@@ -3,6 +3,6 @@
 
 # Carpeta del Proyecto
 
-helm uninstall proyecto1
+helm uninstall proxy
 
 helm uninstall servers
