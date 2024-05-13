@@ -1,10 +1,11 @@
 #include <stdio.h> 
 #include <stdlib.h> 
-#include <unistd.h> 
-#include "b64/cencode.h"
+#include <unistd.h>
+#include <curl/curl.h> // Peticion API
+#include "b64/cencode.h" // Encode/Decode en base64
 #include <string.h> 
 #include <sys/types.h> 
-#include <sys/socket.h> 
+#include <sys/socket.h> // Sockets
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
 
@@ -18,7 +19,7 @@ void queryStandard();
 void notQueryStandard(int sockfd, struct sockaddr_in servaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes);
 
 void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer);
-void sendApi (int sockfd, char message[8192], struct sockaddr_in servaddr);
+void sendApi (char *url, char message[8192]);
 
 int main() { 
         
@@ -140,18 +141,7 @@ void notQueryStandard(int sockfd, struct sockaddr_in servaddr, unsigned char buf
 
 
         // Se envia la peticion HTTP POST a /api/dns_resolver
-        char postRequest[8192];
-
-        char *request = "POST /api/dns_resolver HTTP/1.1\r\n"
-                "Host: %s\r\n"  
-                "Content-Type: application/json\r\n"
-                "Content-Length: %ld\r\n"
-                "\r\n"
-                "%s";
-
-        sprintf(postRequest, request, API_IP, strlen(bufferCoded), bufferCoded);
-
-        sendApi (sockfd, postRequest, servaddr);
+        sendApi ("http://localhost:5000/api/dns_resolver", bufferCoded);
 
         printf("Solicitud HTTP POST enviada con éxito al DNS API.\n");
 
@@ -174,9 +164,37 @@ void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char
         outputBuffer[retlen + retlen2] = '\0';
 }
 
-void sendApi (int sockfd, char message[8192], struct sockaddr_in servaddr){
-        if (sendto(sockfd, message, strlen(message), MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)) < 0){
-                perror("Algo fallo al hacer un envio de datos.");
-                exit(EXIT_FAILURE);
+void sendApi(char *url, char message[8192]) {
+        CURL *curl;
+        CURLcode res;
+
+        // Inicializa la biblioteca libcurl
+        curl_global_init(CURL_GLOBAL_ALL);
+
+        // Crea una instancia de CURL
+        curl = curl_easy_init();
+        if(curl) {
+                // Establece la URL
+                curl_easy_setopt(curl, CURLOPT_URL, url);
+
+                // Establece el método HTTP POST
+                curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+                // Habilitar la depuración en libcurl
+                //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+
+                // Establece el cuerpo de la petición y su longitud
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, message);
+
+                // Realiza la petición HTTP
+                res = curl_easy_perform(curl);
+                if(res != CURLE_OK)
+                        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+
+                // Finaliza el proceso
+                curl_easy_cleanup(curl);
         }
+
+        // Finaliza la biblioteca libcurl
+        curl_global_cleanup();
 }
