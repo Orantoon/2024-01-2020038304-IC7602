@@ -2,7 +2,8 @@
 #include <stdlib.h> 
 #include <unistd.h>
 #include <curl/curl.h> // Peticion API
-#include "b64/cencode.h" // Encode/Decode en base64
+#include "b64/cencode.h" // Encode en base64
+#include "b64/cdecode.h" // Decode en base64
 #include <string.h> 
 #include <sys/types.h> 
 #include <sys/socket.h> // Sockets
@@ -16,9 +17,10 @@
 
 
 void queryStandard();
-void notQueryStandard(int sockfd, struct sockaddr_in servaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes);
+void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes);
 
 void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer);
+void decodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer);
 void sendApi (char *url, char message[8192]);
 
 int main() { 
@@ -101,7 +103,7 @@ int main() {
 
                 }
 
-                notQueryStandard(sockfd, servaddr, buffer, bufferCoded, len, numBytes);
+                notQueryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
 
                 // break;
         }
@@ -118,7 +120,7 @@ void queryStandard(){
 }
 
 
-void notQueryStandard(int sockfd, struct sockaddr_in servaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes){
+void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes){
 
         // Archivos para guardar el primer request
         FILE* log_file, *log_file2; 
@@ -145,6 +147,27 @@ void notQueryStandard(int sockfd, struct sockaddr_in servaddr, unsigned char buf
 
         printf("Solicitud HTTP POST enviada con éxito al DNS API.\n");
 
+        // Se espera la respuesta del servidor
+        unsigned char responseBuffer[MAXLINE];
+        int bytesRead = recv(sockfd, responseBuffer, MAXLINE, 0);
+
+        if (bytesRead < 0) {
+                // Manejo de error en la recepción
+                perror("Error al recibir datos del servidor");
+        } else if (bytesRead == 0) {
+                // El servidor cerró la conexión
+                printf("El servidor cerró la conexión.\n");
+        }
+        // Procesamiento de la respuesta recibida
+        printf("Respuesta recibida del servidor: %s\n", responseBuffer);
+        
+        unsigned char finalResponse[MAXLINE];
+        
+        // Decodificacion en base64
+        decodeBase64(responseBuffer, MAXLINE, finalResponse);
+        printf("Respuesta final: %s\n", finalResponse);
+
+        sendto(sockfd, finalResponse, strlen(finalResponse), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
 
         fclose(log_file);
         fclose(log_file2);
@@ -162,6 +185,17 @@ void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char
         //printf("RETLEN2: %d \n", retlen2);
 
         outputBuffer[retlen + retlen2] = '\0';
+}
+
+void decodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer) {
+        // Se inicializa el decode base64
+        base64_decodestate state;
+        base64_init_decodestate(&state);
+
+        // Se decodifica el inputBuffer en base64
+        int retlen = base64_decode_block((const char *)inputBuffer, inputSize, (char *)outputBuffer, &state);        //printf("RETLEN: %d \n", retlen);
+
+        outputBuffer[retlen] = '\0';
 }
 
 void sendApi(char *url, char message[8192]) {
