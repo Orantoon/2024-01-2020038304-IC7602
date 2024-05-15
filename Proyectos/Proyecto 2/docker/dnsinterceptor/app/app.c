@@ -1,6 +1,7 @@
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h>
+#include <stdbool.h>
 #include <curl/curl.h> // Peticion API
 #include "b64/cencode.h" // Encode en base64
 #include "b64/cdecode.h" // Decode en base64
@@ -19,6 +20,8 @@
 
 
 void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes);
+void leerHost(unsigned char buffer[MAXLINE], char *host);
+
 void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes);
 
 void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer);
@@ -97,17 +100,19 @@ int main() {
 
                 if (qr == 0 && opcode == 0){
 
-                        //queryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
+                        printf("PETICION STANDARD \n\n");
+
+                        queryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
 
                 } else {
+
+                        printf("PETICION NO STANDARD \n\n");
                         
-                        //notQueryStandard(sockfd, servaddr, cliaddr, buffer, len, numBytes);
+                        notQueryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
 
                 }
 
-                notQueryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
-
-                // break;
+                //notQueryStandard(sockfd, cliaddr, buffer, bufferCoded, len, numBytes);
         }
 
         close(sockfd);
@@ -118,8 +123,52 @@ int main() {
 
 
 void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], unsigned char bufferCoded[4096], int len, int numBytes){
-
         
+        // Se lee el HOST
+        char host[1000];
+        bzero(host, 1000);
+
+        leerHost(buffer, host);
+
+
+}
+
+void leerHost(unsigned char buffer[MAXLINE], char *host){
+
+        // Lectura de HOST
+
+        int n = 12; // Numero del byte que se esta leyendo
+        int i; // Cantidad de bytes que se leen entre puntos
+        char caracter; // Caracter ASCII que se esta leyendo
+        bool first = true; // Flag para que no se guarde un punto al inicio
+
+        while (1){
+                if (buffer[n] == 0){ // Si el byte es un 0 se para la lectura
+                        break;
+                } else {
+                        if (!first){
+                                strcat(host, ".");
+                        }
+                        first = false;
+
+                        i = buffer[n]; // i equivale al valor dado antes de que se muestran los caracteres
+                }
+
+                while (i > 0){
+                        n++;
+
+                        caracter = (char)buffer[n]; // Se obtiene el valor y se convierte al caracter ASCII
+                        //printf("Caracter: %c \n", caracter);
+
+                        strcat(host, &caracter); // Se agrega el caracter al final del string host
+
+                        i--;
+                }
+
+                n++;
+        }
+
+        printf("HOST: %s \n", host);
 }
 
 
@@ -219,7 +268,7 @@ void sendApi(char *url, char message[8192]) {
                 // Establece el método HTTP POST
                 curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
-                // Habilitar la depuración en libcurl
+                // Habilita la depuración en libcurl
                 //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
                 // Establece el cuerpo de la petición y su longitud
