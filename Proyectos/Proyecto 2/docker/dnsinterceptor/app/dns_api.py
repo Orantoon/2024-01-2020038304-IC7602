@@ -48,7 +48,17 @@ def dns_resolver_remote(content_decoded, servidor_dns):
     return respuesta
 
 def send_interceptor(respuesta_dns):
+    print("NORMAL ", respuesta_dns)
+    respuesta_bytes = bytes(respuesta_dns)
+
     respuesta_base64 = base64.b64encode(respuesta_dns).decode()
+
+    print("ENCODE ", respuesta_base64)
+
+    respuesta_base64_2 = base64.b64encode(respuesta_bytes).decode()
+
+    print("ENCODE 2", respuesta_base64_2)
+
 
     Interceptor_IP = "127.0.0.1"
     Interceptor_PORT = 53
