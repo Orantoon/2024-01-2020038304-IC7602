@@ -1,6 +1,16 @@
 from flask import Flask, request
+import firebase_admin
+from firebase_admin import db, credentials
+from dnslib import DNSRecord
+import ipaddress
 import socket
 import base64
+import struct
+import re
+import random
+import yaml
+
+multi_id = 0
 
 # Crea una instancia de la aplicación Flask
 app = Flask(__name__)
@@ -27,6 +37,7 @@ def dns_resolver_remote(content_decoded, servidor_dns):
 
     cliente_dns.settimeout(30)
 
+    respuesta = ""
     try:
         # Envia peticion al DNS Remoto
         cliente_dns.sendto(content_decoded, (servidor_dns, 53))
@@ -48,17 +59,11 @@ def dns_resolver_remote(content_decoded, servidor_dns):
     return respuesta
 
 def send_interceptor(respuesta_dns):
-    print("NORMAL ", respuesta_dns)
-    respuesta_bytes = bytes(respuesta_dns)
-
-    respuesta_base64 = base64.b64encode(respuesta_dns).decode()
-
+    if isinstance(respuesta_dns, str):
+        respuesta_base64 = base64.b64encode(respuesta_dns.encode()).decode()
+    else:
+        respuesta_base64 = base64.b64encode(respuesta_dns).decode()
     print("ENCODE ", respuesta_base64)
-
-    respuesta_base64_2 = base64.b64encode(respuesta_bytes).decode()
-
-    print("ENCODE 2", respuesta_base64_2)
-
 
     Interceptor_IP = "127.0.0.1"
     Interceptor_PORT = 53
@@ -80,9 +85,228 @@ def send_interceptor(respuesta_dns):
 @app.route('/api/exists', methods=['GET'])
 def exists():
     print("EXISTS")
+
+    # Argumento 'message'
+    message = request.args.get('message')
+    print("Argumento 'message' de la petición: ", message)
+    message_decoded = ""
+
+    if message:
+        # Verificar que el mensaje no esté vacío
+        try:
+            message_decoded = base64.b64decode(message)
+            print("Contenido message de la petición decodificado: ", message_decoded)
+        except Exception as e:
+            print("Error al decodificar el mensaje en base64: ", e)
+    else:
+        print("No se recibió ningún mensaje en la petición: ")
+
+    # Argumento 'source_ip'
+    source_ip = request.args.get('source_ip')
+    print("Argumento 'source_ip' de la petición: ", source_ip)
+    source_ip_decoded = ""
+
+    if source_ip:
+        # Verificar que el source_ip no esté vacío
+        try:
+            source_ip_decoded = base64.b64decode(source_ip)
+            source_ip_decoded = source_ip_decoded.decode('utf-8')
+            source_ip_decoded = source_ip_decoded.strip('\x00')
+            print("Contenido source_ip de la petición decodificado: ", source_ip_decoded)
+        except Exception as e:
+            print("Error al decodificar el source_ip en base64: ", e)
+    else:
+        print("No se recibió ningún mensaje en la petición: ")
+
+
+    dns_record = DNSRecord.parse(message_decoded)
+    host = str(dns_record.q.qname)
+    
+    # Conversion del HOST a formato Firebase
+    parts = host.split(".")
+    reversed_parts = reversed(parts)
+    host_firebase = "/".join(reversed_parts)
+    print("HOST Firebase ", host_firebase)
+
+    # Firebase
+    ref1 = db.reference(host_firebase, app=firebase_admin.get_app(name='app1'))
+    query = ref1.get()
+
+    if query:
+        print("El registro existe.")
+
+        # Type
+        type = query.get("type")
+
+        # SINGLE
+        if (type == "single"):
+            
+            typeSingle(query, message_decoded)
+
+        # MULTI
+        elif (type == "multi"):
+
+            typeMulti(query, message_decoded)
+
+        # WEIGHT
+        elif (type == "weight"):
+
+            typeWeight(query, message_decoded)
+
+        # GEO
+        elif (type == "geo"):
+
+            typeGeo(query, message_decoded, source_ip_decoded)
+
+        else:
+            print("Type inesperado.")
+
+    else:
+        print("El registro no existe.")
+
+        # Se le envia "No Existe" al Interceptor
+        send_interceptor("No Existe")
+
     return "Exists"
 
+
+def dns_response(data, ip):
+
+    # Estructura de una respuesta DNS: [encabezado][nombre de dominio][tipo y clase][TTL][longitud de datos][datos]
+
+    print("DATA: ", data)
+    # Copia el encabezado DNS
+    dns_header = data[:2]
+
+    # Copia la sección de pregunta DNS
+    dns_question = data[12:]
+
+    # Construye la respuesta DNS modificada
+    dns_response = dns_header + b"\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00"
+    dns_response += dns_question
+    dns_response += b"\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04"
+    dns_response += socket.inet_aton(ip)
+
+    print("RESPONSE: ", dns_response)
+
+    return dns_response
+
+def typeSingle(query, message_decoded):
+    print("SINGLE")
+
+    ip = query.get("ip")
+
+    # Se genera la respuesta que cumple con RFC2929 y RFC1035
+    response = dns_response(message_decoded, ip)
+
+    # Se envia la respuesta al Interceptor
+    send_interceptor(response)
+
+def typeMulti(query, message_decoded):
+    print("MULTI")
+
+    # Round-robin para obtener el IP
+    global multi_id
+
+    ip_list = query.get("ips")
+
+    ip_obj = ip_list[multi_id]
+    ip = ip_obj.get("ip")
+    multi_id = (multi_id + 1) % len(ip_list)
+
+    print(ip)
+
+    # Se genera la respuesta que cumple con RFC2929 y RFC1035
+    response = dns_response(message_decoded, ip)
+
+    # Se envia la respuesta al Interceptor
+    send_interceptor(response)
+
+
+def typeWeight(query, message_decoded):
+    print("WEIGHT")
+
+    ip_list = query.get("ips")
+
+    num = random.randint(1, 100)
+    total_weight = 0
+
+    for obj in ip_list:
+        total_weight += obj.get("weight")
+
+        if total_weight >= num:
+            ip = obj.get("ip")
+            break
+
+    print(ip)
+
+    # Se genera la respuesta que cumple con RFC2929 y RFC1035
+    response = dns_response(message_decoded, ip)
+
+    # Se envia la respuesta al Interceptor
+    send_interceptor(response)
+
+
+def typeGeo(query, message_decoded, source_ip):
+    print("GEO")
+
+    ref2 = db.reference(app=firebase_admin.get_app(name='app2'))
+    data = ref2.get()
+
+    #source_ip = "1.0.0.250"
+    country = ""
+    source_ip_obj = ipaddress.IPv4Address(source_ip)
+
+    for entry in data:
+
+        ip_start = entry.get('0_0_0_0')
+        ip_end = entry.get('0_255_255_255')
+
+        if ip_start is not None and ip_end is not None:
+            ip_start_obj = ipaddress.IPv4Address(ip_start)
+            ip_end_obj = ipaddress.IPv4Address(ip_end)
+
+            if ip_start_obj <= source_ip_obj <= ip_end_obj:
+                print(f"La dirección IP {source_ip} está dentro del rango [{ip_start}, {ip_end}]")
+                country = entry.get('ZZ')
+                print("COUNTRY: ", country)
+                break
+
+    # En caso de no encontrar el pais correspondiente devuelve 0.0.0.0
+    ip = "1.0.0.0"
+    if country != "":
+        ip_list = query.get("ips")
+
+        for ip_obj in ip_list:
+            if country == ip_obj.get("country"):
+                ip = ip_obj.get("ip")
+                break
+
+    print("IP ++++++++++++++++++++ ", ip)
+
+    # Se genera la respuesta que cumple con RFC2929 y RFC1035
+    response = dns_response(message_decoded, ip)
+
+    # Se envia la respuesta al Interceptor
+    send_interceptor(response)
+
+
 def main():
+    with open('../../../config/config.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+
+    # Inicializar Firebase normal
+    cred1 = credentials.Certificate(config['firebase']['app1']['credentials'])
+    firebase_admin.initialize_app(cred1, {
+        'databaseURL': config['firebase']['app1']['databaseURL']
+    }, name='app1')
+
+    # Firebase de la base IP To Country
+    cred2 = credentials.Certificate(config['firebase']['app2']['credentials'])
+    firebase_admin.initialize_app(cred2, {
+        'databaseURL': config['firebase']['app2']['databaseURL']
+    }, name='app2')
+
     app.run(debug=True)
 
 main()

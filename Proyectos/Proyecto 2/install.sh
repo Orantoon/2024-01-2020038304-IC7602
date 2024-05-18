@@ -1,13 +1,20 @@
 #!/bin/bash
 #cd "/mnt/d/Tareas David/TEC/Semestre 9/Redes/2023-02-2020038304-IC7602/Proyectos/Proyecto 2/"
 
-# Correr localmente
-#gcc app.c -o app -lb64
+# Correr Interceptor localmente
+#gcc app.c -o app -lb64 -lcurl
 #sudo ./app
 
-# Correr Proxy
-#kubectl exec -it dnsinterceptor-c7f8f5fd4-lchsh -- /bin/bash
-#./app
+# Correr API localmente
+#python3 dns_api.py
+
+# NSLOOKUP
+# set timeout=1000
+# server 127.0.0.1
+# www.google.com
+# mail.google.com
+# meet.google.com
+# workspace.google.com
 
 
 # Carpeta del Proyecto
