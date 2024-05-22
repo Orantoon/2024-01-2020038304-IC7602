@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <curl/curl.h> // Peticion API
-#include "b64/cencode.h" // Encode en base64
-#include "b64/cdecode.h" // Decode en base64
+#include "b64/cencode.h" // Encode en Base64
+#include "b64/cdecode.h" // Decode en Base64
 #include <string.h> 
 #include <sys/types.h> 
 #include <sys/socket.h> // Sockets
@@ -20,7 +20,6 @@
 
 
 void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], int len, int numBytes);
-
 void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], int len, int numBytes);
 
 void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer);
@@ -28,12 +27,13 @@ void decodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char
 void sendApi (char *urlBase, char message[MAXLINE], bool post, char sourceIP[MAXLINE]);
 void recvApi(unsigned char *responseBuffer, int sockfd);
 
+
 int main() { 
         
         int sockfd; 
         unsigned char buffer[MAXLINE] = "";
 
-        struct sockaddr_in servaddr, cliaddr; 
+        struct sockaddr_in cliaddr; 
 
         // Creacion del Client Socket
         if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
@@ -47,7 +47,6 @@ int main() {
         cliaddr.sin_addr.s_addr = INADDR_ANY; 
         cliaddr.sin_port = htons(PORT);
 
-
         int enable = 1;
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
                 perror("setsockopt(SO_REUSEADDR) fallo.");
@@ -60,37 +59,32 @@ int main() {
                 exit(EXIT_FAILURE); 
         }
 
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_addr.s_addr = inet_addr(API_IP);
-        servaddr.sin_port = htons(API_PORT);
-
         int len, numBytes; 
         len = sizeof(cliaddr);  //len is value/result 
 
         while (1){
-
                 printf("\n\n");
                 printf("------------------- \n");
                 printf("Listening... \n\n");
 
                 bzero(buffer, MAXLINE);
 
+                // Se recibe la petición DNS inicial del Cliente
                 numBytes = recvfrom(sockfd, &buffer, MAXLINE, MSG_WAITALL, ( struct sockaddr *) &cliaddr, &len);
                 if (numBytes == -1) {
-                        perror("Hubo un error en la recepcion de datos.");
+                        perror("Hubo un error en la recepción de datos.");
                         exit(EXIT_FAILURE);
                 }
 
                 //printf("Largo del buffer: %ld \n", strlen(buffer));
 
-                // QR
+                // --- QR ---
                 unsigned int qr = (unsigned int) buffer[2];
                 qr = qr << 24;
                 qr = qr >> 31;
                 printf("QR: %u \n", qr);
 
-                // OPCODE
+                // --- OPCODE ---
                 unsigned int opcode = (unsigned int) buffer[2];
                 opcode = opcode << 25;
                 opcode = opcode >> 28;
@@ -120,6 +114,8 @@ int main() {
 }
 
 
+// ========= Petición Standard =========
+
 void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], int len, int numBytes){
         char bufferCoded[MAXLINE];
         bzero(bufferCoded, MAXLINE);
@@ -129,7 +125,7 @@ void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[
         char sourceIP[MAXLINE];
         inet_ntop(AF_INET, &cliaddr.sin_addr, clientIP, INET_ADDRSTRLEN);
 
-        // Codificacion en base64
+        // Codificacion en Base64
         encodeBase64(buffer, numBytes, bufferCoded);
         encodeBase64(clientIP, sizeof(clientIP), sourceIP);
         printf("Source IP del cliente: %s\n", clientIP);
@@ -145,10 +141,11 @@ void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[
         unsigned char responseBuffer[MAXLINE];
         recvApi(responseBuffer, sockfd);
 
-        // Decodificacion en base64
+        // Decodificacion en Base64
         unsigned char finalResponse[MAXLINE] = "";
         decodeBase64(responseBuffer, MAXLINE, finalResponse);
 
+        // Si se recibe un "No Existe" del API se corre una Petición No Standard
         if (strcmp(finalResponse, "No Existe") == 0){
                 bzero(bufferCoded, MAXLINE);
                 bzero(finalResponse, MAXLINE);
@@ -163,15 +160,18 @@ void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[
         }
 }
 
+
+// ========= Petición NO Standard =========
+
 void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], int len, int numBytes){
         char bufferCoded[MAXLINE];
         bzero(bufferCoded, MAXLINE);
 
-        // Codificacion en base64
+        // Codificacion en Base64
         encodeBase64(buffer, numBytes, bufferCoded);
         printf("Petición obtenida codificada en Base64: %s\n", bufferCoded);
 
-        // Se envia la peticion HTTP POST a /api/dns_resolver
+        // Se envía la peticion HTTP POST a /api/dns_resolver
         sendApi ("http://localhost:5000/api/dns_resolver", bufferCoded, true, NULL);
 
         printf("-- Solicitud HTTP POST dns_resolver enviada con éxito al DNS API. --\n\n");
@@ -180,7 +180,7 @@ void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buff
         unsigned char responseBuffer[MAXLINE];
         recvApi(responseBuffer, sockfd);
         
-        // Decodificacion en base64
+        // Decodificacion en Base64
         unsigned char finalResponse[MAXLINE] = "";
         decodeBase64(responseBuffer, MAXLINE, finalResponse);
         
@@ -189,12 +189,15 @@ void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buff
         sendto(sockfd, finalResponse, sizeof(finalResponse), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
 }
 
+
+// ========= Code/Decode en Base64 =========
+
 void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer) {
-        // Se inicializa el encode base64
+        // Se inicializa el encode Base64
         base64_encodestate state;
         base64_init_encodestate(&state);
 
-        // Se codifica el inputBuffer en base64
+        // Se codifica el inputBuffer en Base64
         int retlen = base64_encode_block(inputBuffer, inputSize, outputBuffer, &state);
         int retlen2 = base64_encode_blockend(outputBuffer + retlen, &state);
         //printf("RETLEN: %d \n", retlen);
@@ -204,16 +207,20 @@ void encodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char
 }
 
 void decodeBase64(const unsigned char *inputBuffer, int inputSize, unsigned char *outputBuffer) {
-        // Se inicializa el decode base64
+        // Se inicializa el decode Base64
         base64_decodestate state;
         base64_init_decodestate(&state);
 
-        // Se decodifica el inputBuffer en base64
+        // Se decodifica el inputBuffer en Base64
         int retlen = base64_decode_block(inputBuffer, inputSize, outputBuffer, &state);
 
         outputBuffer[retlen] = '\0';
 }
 
+
+// ========= Enviar y Recibir con el DNS API =========
+
+// Se envían peticiones HTTP al DNS API
 void sendApi(char *urlBase, char message[MAXLINE], bool post, char sourceIP[MAXLINE]) {
     CURL *curl;
     CURLcode res;
@@ -227,55 +234,53 @@ void sendApi(char *urlBase, char message[MAXLINE], bool post, char sourceIP[MAXL
     curl = curl_easy_init();
     if (curl) {
         if (post) {
-            // Para solicitudes POST, simplemente usamos la URL base
+            // Para las peticiones POST se usar el URL base
             strcpy(url, urlBase);
         } else {
-            // Para solicitudes GET, construimos la URL con los parámetros codificados
+            // Para las peticiones GET se modifica el URL con los parámetros codificados en Base64
             char *encoded_message = curl_easy_escape(curl, message, strlen(message));
             char *encoded_sourceIP = curl_easy_escape(curl, sourceIP, strlen(sourceIP));
+
             snprintf(url, sizeof(url), "%s?message=%s&source_ip=%s", urlBase, encoded_message, encoded_sourceIP);
+
             curl_free(encoded_message);
             curl_free(encoded_sourceIP);
         }
 
         printf("URL para la petición al API: %s\n", url);
 
-        // Establece la URL
         curl_easy_setopt(curl, CURLOPT_URL, url);
 
         if (post) {
-            // Establece el método HTTP POST
+            // Petición HTTP POST
             curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
-            // Establece el cuerpo de la petición y su longitud
+            // Body de la petición
             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, message);
         } else {
-            // Establece el método HTTP GET
+            // Petición HTTP GET
             curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
         }
 
-        // Realiza la petición HTTP
+        // Se hace la petición HTTP
         res = curl_easy_perform(curl);
         if (res != CURLE_OK)
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 
-        // Finaliza el proceso
         curl_easy_cleanup(curl);
     }
 
-    // Finaliza la biblioteca libcurl
     curl_global_cleanup();
 }
 
+// Se recibe la respuesta del DNS API con sockets
 void recvApi(unsigned char *responseBuffer, int sockfd){
         int bytesRead = recv(sockfd, responseBuffer, MAXLINE, 0);
 
         if (bytesRead < 0) {
-                // Manejo de error en la recepción
-                perror("Error al recibir datos del servidor");
+                perror("Error al recibir datos del servidor.");
                 exit(EXIT_FAILURE);
         } else if (bytesRead == 0) {
-                // El servidor cerró la conexión
                 perror("El servidor cerró la conexión.\n");
                 exit(EXIT_FAILURE);
         }

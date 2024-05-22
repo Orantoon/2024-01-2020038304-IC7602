@@ -15,6 +15,7 @@
 # mail.google.com
 # meet.google.com
 # workspace.google.com
+# hola.google.com
 
 
 # Carpeta del Proyecto
