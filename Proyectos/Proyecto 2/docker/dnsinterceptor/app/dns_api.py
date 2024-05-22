@@ -17,20 +17,24 @@ app = Flask(__name__)
 
 @app.route('/api/dns_resolver', methods=['POST'])
 def dns_resolver_router():
-    print("DNS RESOLVER")
+    print()
+    print("--------------")
+    print("=== DNS RESOLVER ===")
+    print()
 
     content = request.get_data(as_text=True)
-    print("Contenido de la petición:", content)
+    print("Contenido de la petición recibida: ", content)
 
     content_decoded = base64.b64decode(content)
-    print("Contenido de la petición decodificado:", content_decoded)
+    print("Contenido de la petición recibida decodificado en Base64:", content_decoded)
+    print()
 
     # Se envia la peticion al DNS Remoto y se recibe una respuesta
     respuesta_dns = dns_resolver_remote(content_decoded, "8.8.8.8")
 
     send_interceptor(respuesta_dns)
 
-    return "DNS Resolver"
+    return ""
 
 def dns_resolver_remote(content_decoded, servidor_dns):
     cliente_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -46,8 +50,8 @@ def dns_resolver_remote(content_decoded, servidor_dns):
         respuesta, _ = cliente_dns.recvfrom(1024)
         
         # Se imprime la respuesta recibida
-        print("Respuesta del servidor DNS:")
-        print(respuesta)
+        print()
+        print("Respuesta obtenida del servidor DNS: ", respuesta)
     
     except socket.timeout:
         print("Tiempo de espera agotado. No se recibió ninguna respuesta del servidor DNS.")
@@ -63,7 +67,8 @@ def send_interceptor(respuesta_dns):
         respuesta_base64 = base64.b64encode(respuesta_dns.encode()).decode()
     else:
         respuesta_base64 = base64.b64encode(respuesta_dns).decode()
-    print("ENCODE ", respuesta_base64)
+    print("Respuesta codificada en Base64: ", respuesta_base64)
+    print()
 
     Interceptor_IP = "127.0.0.1"
     Interceptor_PORT = 53
@@ -84,18 +89,22 @@ def send_interceptor(respuesta_dns):
 
 @app.route('/api/exists', methods=['GET'])
 def exists():
-    print("EXISTS")
+    print()
+    print("--------------")
+    print("=== EXISTS ===")
+    print()
 
     # Argumento 'message'
     message = request.args.get('message')
-    print("Argumento 'message' de la petición: ", message)
+    print("Argumento 'message' recibido en la petición: ", message)
     message_decoded = ""
 
     if message:
         # Verificar que el mensaje no esté vacío
         try:
             message_decoded = base64.b64decode(message)
-            print("Contenido message de la petición decodificado: ", message_decoded)
+            print("Argumento 'message' de la petición decodificado en Base64: ", message_decoded)
+            print()
         except Exception as e:
             print("Error al decodificar el mensaje en base64: ", e)
     else:
@@ -103,7 +112,7 @@ def exists():
 
     # Argumento 'source_ip'
     source_ip = request.args.get('source_ip')
-    print("Argumento 'source_ip' de la petición: ", source_ip)
+    print("Argumento 'source_ip' recibido en la petición: ", source_ip)
     source_ip_decoded = ""
 
     if source_ip:
@@ -112,7 +121,8 @@ def exists():
             source_ip_decoded = base64.b64decode(source_ip)
             source_ip_decoded = source_ip_decoded.decode('utf-8')
             source_ip_decoded = source_ip_decoded.strip('\x00')
-            print("Contenido source_ip de la petición decodificado: ", source_ip_decoded)
+            print("Argumento 'source_ip' de la petición decodificado en Base64: ", source_ip_decoded)
+            print()
         except Exception as e:
             print("Error al decodificar el source_ip en base64: ", e)
     else:
@@ -126,14 +136,16 @@ def exists():
     parts = host.split(".")
     reversed_parts = reversed(parts)
     host_firebase = "/".join(reversed_parts)
-    print("HOST Firebase ", host_firebase)
+    #print("HOST Firebase ", host_firebase)
 
     # Firebase
     ref1 = db.reference(host_firebase, app=firebase_admin.get_app(name='app1'))
     query = ref1.get()
 
+    print()
     if query:
-        print("El registro existe.")
+        print("El registro '", host_firebase, "' existe en Firebase.")
+        print()
 
         # Type
         type = query.get("type")
@@ -167,14 +179,14 @@ def exists():
         # Se le envia "No Existe" al Interceptor
         send_interceptor("No Existe")
 
-    return "Exists"
+    return ""
 
 
 def dns_response(data, ip):
 
     # Estructura de una respuesta DNS: [encabezado][nombre de dominio][tipo y clase][TTL][longitud de datos][datos]
 
-    print("DATA: ", data)
+    #print("DATA: ", data)
     # Copia el encabezado DNS
     dns_header = data[:2]
 
@@ -187,14 +199,18 @@ def dns_response(data, ip):
     dns_response += b"\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x1e\x00\x04"
     dns_response += socket.inet_aton(ip)
 
-    print("RESPONSE: ", dns_response)
+    print()
+    print("Respuesta DNS generada manualmente: ", dns_response)
 
     return dns_response
 
 def typeSingle(query, message_decoded):
-    print("SINGLE")
+    print("-- SINGLE --")
+    print()
 
     ip = query.get("ip")
+
+    print("IP seleccionado directamente para enviar al cliente: ", ip)
 
     # Se genera la respuesta que cumple con RFC2929 y RFC1035
     response = dns_response(message_decoded, ip)
@@ -203,7 +219,8 @@ def typeSingle(query, message_decoded):
     send_interceptor(response)
 
 def typeMulti(query, message_decoded):
-    print("MULTI")
+    print("-- MULTI --")
+    print()
 
     # Round-robin para obtener el IP
     global multi_id
@@ -214,7 +231,7 @@ def typeMulti(query, message_decoded):
     ip = ip_obj.get("ip")
     multi_id = (multi_id + 1) % len(ip_list)
 
-    print(ip)
+    print("IP seleccionado por 'round-robin' para enviar al cliente: ", ip)
 
     # Se genera la respuesta que cumple con RFC2929 y RFC1035
     response = dns_response(message_decoded, ip)
@@ -224,7 +241,8 @@ def typeMulti(query, message_decoded):
 
 
 def typeWeight(query, message_decoded):
-    print("WEIGHT")
+    print("-- WEIGHT --")
+    print()
 
     ip_list = query.get("ips")
 
@@ -238,7 +256,7 @@ def typeWeight(query, message_decoded):
             ip = obj.get("ip")
             break
 
-    print(ip)
+    print("IP seleccionado basado en el peso de los registros para enviar al cliente: ", ip)
 
     # Se genera la respuesta que cumple con RFC2929 y RFC1035
     response = dns_response(message_decoded, ip)
@@ -248,7 +266,8 @@ def typeWeight(query, message_decoded):
 
 
 def typeGeo(query, message_decoded, source_ip):
-    print("GEO")
+    print("-- GEO --")
+    print()
 
     ref2 = db.reference(app=firebase_admin.get_app(name='app2'))
     data = ref2.get()
@@ -272,7 +291,7 @@ def typeGeo(query, message_decoded, source_ip):
                 print("COUNTRY: ", country)
                 break
 
-    # En caso de no encontrar el pais correspondiente devuelve 0.0.0.0
+    # En caso de no encontrar el pais correspondiente devuelve 1.0.0.0
     ip = "1.0.0.0"
     if country != "":
         ip_list = query.get("ips")
@@ -282,7 +301,8 @@ def typeGeo(query, message_decoded, source_ip):
                 ip = ip_obj.get("ip")
                 break
 
-    print("IP ++++++++++++++++++++ ", ip)
+    print("El Source IP pertenece al pais: ", country)
+    print("IP seleccionado basado en Source IP del cliente para enviar al cliente: ", ip)
 
     # Se genera la respuesta que cumple con RFC2929 y RFC1035
     response = dns_response(message_decoded, ip)

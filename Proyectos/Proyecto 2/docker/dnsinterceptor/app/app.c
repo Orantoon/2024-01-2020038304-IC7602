@@ -35,13 +35,13 @@ int main() {
 
         struct sockaddr_in servaddr, cliaddr; 
 
-        // Creacion del socket
+        // Creacion del Client Socket
         if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
                 perror("Creacion del socket fallo."); 
                 exit(EXIT_FAILURE); 
         } 
 
-        // Información del Cliente
+        // Información del Client Socket
         memset(&cliaddr, 0, sizeof(cliaddr));
         cliaddr.sin_family    = AF_INET; // IPv4 
         cliaddr.sin_addr.s_addr = INADDR_ANY; 
@@ -54,7 +54,7 @@ int main() {
                 exit(EXIT_FAILURE);
         }
 
-        // Bind del socket al Cliente 
+        // Bind del Client Socket
         if ( bind(sockfd, (const struct sockaddr *)&cliaddr, sizeof(cliaddr)) < 0 ){ 
                 perror("El enlace del socket fallo."); 
                 exit(EXIT_FAILURE); 
@@ -72,7 +72,7 @@ int main() {
 
                 printf("\n\n");
                 printf("------------------- \n");
-                printf("Listening... \n");
+                printf("Listening... \n\n");
 
                 bzero(buffer, MAXLINE);
 
@@ -82,7 +82,7 @@ int main() {
                         exit(EXIT_FAILURE);
                 }
 
-                printf("Largo del buffer: %ld \n", strlen(buffer));
+                //printf("Largo del buffer: %ld \n", strlen(buffer));
 
                 // QR
                 unsigned int qr = (unsigned int) buffer[2];
@@ -98,13 +98,13 @@ int main() {
 
                 if (qr == 0 && opcode == 0){
 
-                        printf("PETICION STANDARD \n\n");
+                        printf("=== PETICION STANDARD ===\n\n");
 
                         queryStandard(sockfd, cliaddr, buffer, len, numBytes);
 
                 } else {
 
-                        printf("PETICION NO STANDARD \n\n");
+                        printf("=== PETICION NO STANDARD ===\n\n");
                         
                         notQueryStandard(sockfd, cliaddr, buffer, len, numBytes);
 
@@ -132,13 +132,14 @@ void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[
         // Codificacion en base64
         encodeBase64(buffer, numBytes, bufferCoded);
         encodeBase64(clientIP, sizeof(clientIP), sourceIP);
-        printf("BASE64 Buffer: %s\n", bufferCoded);
-        printf("BASE64 Source IP: %s\n", sourceIP);
+        printf("Source IP del cliente: %s\n", clientIP);
+        printf("Source IP codificado en Base64: %s", sourceIP);
+        printf("Petición obtenida codificada en Base64: %s\n", bufferCoded);
 
         // Se envia la peticion HTTP GET a /api/exists
         sendApi ("http://localhost:5000/api/exists", bufferCoded, false, sourceIP);
 
-        printf("Solicitud HTTP GET enviada con éxito al DNS API.\n");
+        printf("-- Solicitud HTTP GET exists enviada con éxito al DNS API. --\n\n");
 
         // Se espera la respuesta del API
         unsigned char responseBuffer[MAXLINE];
@@ -147,15 +148,19 @@ void queryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[
         // Decodificacion en base64
         unsigned char finalResponse[MAXLINE] = "";
         decodeBase64(responseBuffer, MAXLINE, finalResponse);
-        
-        printf("Respuesta final al cliente: %s\n", finalResponse);
 
         if (strcmp(finalResponse, "No Existe") == 0){
                 bzero(bufferCoded, MAXLINE);
-                notQueryStandard(sockfd, cliaddr, buffer, len, numBytes);
-        }
+                bzero(finalResponse, MAXLINE);
 
-        sendto(sockfd, finalResponse, sizeof(finalResponse), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
+                printf("\n=== PETICION NO STANDARD ===\n\n");
+
+                notQueryStandard(sockfd, cliaddr, buffer, len, numBytes);
+        } else {
+                printf("Respuesta decodificada que se le envía al cliente: %s\n", finalResponse);
+
+                sendto(sockfd, finalResponse, sizeof(finalResponse), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
+        }
 }
 
 void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buffer[MAXLINE], int len, int numBytes){
@@ -164,12 +169,12 @@ void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buff
 
         // Codificacion en base64
         encodeBase64(buffer, numBytes, bufferCoded);
-        printf("BASE64 : %s\n", bufferCoded);
+        printf("Petición obtenida codificada en Base64: %s\n", bufferCoded);
 
         // Se envia la peticion HTTP POST a /api/dns_resolver
         sendApi ("http://localhost:5000/api/dns_resolver", bufferCoded, true, NULL);
 
-        printf("Solicitud HTTP POST enviada con éxito al DNS API.\n");
+        printf("-- Solicitud HTTP POST dns_resolver enviada con éxito al DNS API. --\n\n");
 
         // Se espera la respuesta del API
         unsigned char responseBuffer[MAXLINE];
@@ -179,7 +184,7 @@ void notQueryStandard(int sockfd, struct sockaddr_in cliaddr, unsigned char buff
         unsigned char finalResponse[MAXLINE] = "";
         decodeBase64(responseBuffer, MAXLINE, finalResponse);
         
-        printf("Respuesta final al cliente: %s\n", finalResponse);
+        printf("Respuesta decodificada que se le envía al cliente: %s\n", finalResponse);
 
         sendto(sockfd, finalResponse, sizeof(finalResponse), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
 }
@@ -233,7 +238,7 @@ void sendApi(char *urlBase, char message[MAXLINE], bool post, char sourceIP[MAXL
             curl_free(encoded_sourceIP);
         }
 
-        printf("URL: %s\n", url);
+        printf("URL para la petición al API: %s\n", url);
 
         // Establece la URL
         curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -277,5 +282,5 @@ void recvApi(unsigned char *responseBuffer, int sockfd){
 
         responseBuffer[bytesRead] = '\0';
 
-        printf("Respuesta recibida del servidor: %s\n", responseBuffer);
+        printf("Respuesta recibida del DNS API: %s\n", responseBuffer);
 }
