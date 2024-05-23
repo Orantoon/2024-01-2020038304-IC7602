@@ -2,7 +2,7 @@
 #cd "/mnt/d/Tareas David/TEC/Semestre 9/Redes/2023-02-2020038304-IC7602/Proyectos/Proyecto 2/"
 
 # Correr Interceptor localmente
-#gcc app.c -o app -lb64 -lcurl
+#gcc dns_interceptor.c -o app -lb64 -lcurl
 #sudo ./app
 
 # Correr API localmente
