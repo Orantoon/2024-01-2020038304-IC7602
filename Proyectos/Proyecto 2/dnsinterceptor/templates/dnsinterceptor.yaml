@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.dnsinterceptor.name }}
+  namespace: {{ .Values.config.dnsinterceptor.namespace }}
+  labels:
+    app: {{ .Values.config.dnsinterceptor.name }}
+spec:
+  replicas: {{ .Values.config.dnsinterceptor.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.dnsinterceptor.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.dnsinterceptor.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.dnsinterceptor.name }}
+        image: {{ .Values.config.dnsinterceptor.image }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.config.dnsinterceptor.name }}
+spec:
+  selector:
+    app: {{ .Values.config.dnsinterceptor.name }}
+  ports:
+    - protocol: {{ .Values.config.dnsinterceptor.protocol }}
+      port: {{ .Values.config.dnsinterceptor.port }}
+      targetPort: {{ .Values.config.dnsinterceptor.port }}
+  type: {{ .Values.config.dnsinterceptor.type }}

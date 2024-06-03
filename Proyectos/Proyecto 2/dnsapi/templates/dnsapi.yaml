@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.dnsapi.name }}
+  namespace: {{ .Values.config.dnsapi.namespace }}
+  labels:
+    app: {{ .Values.config.dnsapi.name }}
+spec:
+  replicas: {{ .Values.config.dnsapi.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.dnsapi.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.dnsapi.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.dnsapi.name }}
+        image: {{ .Values.config.dnsapi.image }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.config.dnsapi.name }}
+spec:
+  selector:
+    app: {{ .Values.config.dnsapi.name }}
+  ports:
+    - protocol: {{ .Values.config.dnsapi.protocol }}
+      port: {{ .Values.config.dnsapi.port }}
+      targetPort: {{ .Values.config.dnsapi.port }}
+  type: {{ .Values.config.dnsapi.type }}

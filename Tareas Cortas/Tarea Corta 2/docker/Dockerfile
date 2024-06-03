@@ -18,7 +18,7 @@ RUN apt-get install libcurl4-openssl-dev -y
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 # Compilar la aplicación
-RUN gcc dns_interceptor.c -o app -lb64 -lcurl
+RUN gcc server.c -o app 
 
 # Permisos y ejecución de la aplicacion app.c
 RUN chmod +x app

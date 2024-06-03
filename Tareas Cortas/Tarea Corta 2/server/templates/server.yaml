@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.config.server.name }}
+  namespace: {{ .Values.config.server.namespace }}
+  labels:
+    app: {{ .Values.config.server.name }}
+spec:
+  replicas: {{ .Values.config.server.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.config.server.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.config.server.name }}
+    spec:
+      containers:
+      - name: {{ .Values.config.server.name }}
+        image: {{ .Values.config.server.image }}
+        ports:
+          - containerPort: {{ .Values.config.server.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.config.server.name }}
+  namespace: {{ .Values.config.server.namespace }}
+  labels:
+    app: {{ .Values.config.server.name }}
+spec:
+  type: {{ .Values.config.server.type }}
+  ports:
+  - port: {{ .Values.config.server.port }}
+    protocol: {{ .Values.config.server.protocol }}
+    name: {{ .Values.config.server.name }}
+  selector:
+    app: {{ .Values.config.server.name }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: portforward-pod
+  labels:
+    purpose: portforward
+spec:
+  containers:
+  - name: portforward-container
+    image: appropriate/curl
+    command: ["sleep", "infinity"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: portforward-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: portforward-container
+        image: appropriate/curl
+        command: ["kubectl", "port-forward", "service/server", "9666:9666"]
+      restartPolicy: Never

@@ -1,0 +1,9 @@
+config:
+  server:
+    replicas: 1
+    name: server
+    namespace: default
+    image: orantoon/tareacorta2-ic76020124
+    protocol: TCP
+    port: 9666
+    type: LoadBalancer

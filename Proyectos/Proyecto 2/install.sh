@@ -21,3 +21,5 @@
 # Carpeta del Proyecto
 
 helm upgrade --install dnsinterceptor dnsinterceptor
+
+helm upgrade --install dnsapi dnsapi

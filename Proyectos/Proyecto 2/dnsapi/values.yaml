@@ -1,9 +1,9 @@
 config:
-  dnsinterceptor:
+  dnsapi:
     replicas: 1
-    name: dnsinterceptor
+    name: dnsapi
     namespace: default
-    image: orantoon/dnsinterceptor-ic76020124
+    image: orantoon/dnsapi-ic76020124
     protocol: UDP
     port: 53
     type: NodePort

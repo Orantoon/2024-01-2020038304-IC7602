@@ -6,8 +6,6 @@ from dnslib import DNSRecord
 import ipaddress
 import socket
 import base64
-import struct
-import re
 import random
 import yaml
 
@@ -335,6 +333,7 @@ def dns_response(data, ip):
 # =========== MAIN ===========
 
 def main():
+    
     # Certificados de Firebase
     with open('../../../config/config.yaml', 'r') as file:
         config = yaml.safe_load(file)
