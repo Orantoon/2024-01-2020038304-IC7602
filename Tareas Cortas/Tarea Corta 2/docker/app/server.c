@@ -7,7 +7,7 @@
 #define PORT 9666
 #define MAXLINE 4096
 
-void getBroadcast(char buffer[MAXLINE]);
+void getBroadcast(int new_socket, char buffer[MAXLINE], char final_response[MAXLINE]);
 void getNetworkNumber(char buffer[MAXLINE]);
 void getHostsRange(char buffer[MAXLINE]);
 void getRandomSubnetsNetwork(char buffer[MAXLINE]);
@@ -62,8 +62,9 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Conexión aceptada\n");
+    printf("Conexión aceptada\n\n");
 
+    char final_response[MAXLINE];
     while (1){
         send(new_socket, "\nEscriba una solicitud, o EXIT para salir: ", strlen("\nEscriba una solicitud, o EXIT para salir: "), 0);
 
@@ -75,7 +76,7 @@ int main() {
 
             // GET BROADCAST
             if (strstr(buffer, "GET BROADCAST") != NULL) {
-                getBroadcast(buffer);
+                getBroadcast(new_socket, buffer, final_response);
             } else 
             // GET NETWORK NUMBER
             if (strstr(buffer, "GET NETWORK NUMBER") != NULL) {
@@ -93,14 +94,13 @@ int main() {
                 break;
             }
             else {
-                printf("Solicitud innesperada.\n");
+                printf("Solicitud innesperada.\n\n");
                 send(new_socket, "Error: solicitud innesperada, intente otra vez.\n", strlen("Error: solicitud innesperada, intente otra vez.\n"), 0);
                 continue;
             }
 
-            char *response = "Mensaje recibido con éxito\n";
-            send(new_socket, response, strlen(response), 0);
-            printf("Respuesta enviada\n");
+            send(new_socket, final_response, strlen(final_response), 0);
+            printf("Respuesta %s enviada\n\n", final_response);
             continue;
         }
     }
@@ -114,8 +114,68 @@ int main() {
 
 
 
-void getBroadcast(char buffer[MAXLINE]) {
-    printf("getBroadcast\n");
+void getBroadcast(int new_socket, char buffer[MAXLINE], char final_response[MAXLINE]) {
+    char ip_str[16] = "";
+    char mask_str[16] = "";
+
+    // Extrae el IP y MASK del buffer
+    char *token = strtok(buffer, " ");
+    while (token != NULL) {
+        if (strcmp(token, "IP") == 0) {
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                strncpy(ip_str, token, sizeof(ip_str) - 1);
+                ip_str[sizeof(ip_str) - 1] = '\0';
+            }
+        } else if (strcmp(token, "MASK") == 0) {
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                strncpy(mask_str, token, sizeof(mask_str) - 1);
+                mask_str[sizeof(mask_str) - 1] = '\0';
+            }
+        }
+        token = strtok(NULL, " ");
+    }
+
+    // En caso de que no exista algun elemento da error
+    if (strlen(ip_str) <= 0 || strlen(mask_str) <= 0){
+        printf("IP o MASK invalidos.\n");
+        send(new_socket, "Error: IP o MASK invalidos.\n\n", strlen("Error: IP o MASK invalidos.\n\n"), 0);
+        return;
+    }
+
+    printf("IP: %s\n", ip_str);
+    printf("MASK: %s\n", mask_str);
+
+    // Se pasa el IP de string a unit32_t
+    uint32_t ip;
+    inet_pton(AF_INET, ip_str, &ip);
+    ip = ntohl(ip);
+    
+
+    // Se pasa el MASK de string a unit32_t
+    int mask_num = 0;
+    uint32_t mask;
+    if (mask_str[0] == '/'){
+        mask_num = atoi(&mask_str[1]);
+
+        mask = htonl(~((1 << (32 - mask_num)) - 1));
+    } else {
+        inet_pton(AF_INET, mask_str, &mask);
+    }
+    mask = ntohl(mask);
+
+    // Se calcula el Network IP con la operacion bitwise "IP AND MASK"
+    uint32_t network = ip & mask;
+
+    // Se calcula el Broadcast IP con la operacion bitwise "NETWORK AND NOT MASK"
+    uint32_t broadcast = network | ~mask;
+
+    struct in_addr ip_addr;
+    ip_addr.s_addr = htonl(broadcast);
+    inet_ntop(AF_INET, &ip_addr, final_response, INET_ADDRSTRLEN);
+
+    printf("Broadcast: %s\n", final_response);
 }
 
 void getNetworkNumber(char buffer[MAXLINE]) {
